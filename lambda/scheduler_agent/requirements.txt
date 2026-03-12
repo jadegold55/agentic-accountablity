@@ -1,0 +1,5 @@
+langgraph
+langchain-core
+langchain-groq
+google-api-python-client
+google-auth-httplib2

@@ -1,0 +1,19 @@
+{
+    "python.languageServer": "Pylance",
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "black-formatter.args": ["--fast"],
+    "python.analysis.extraPaths": [
+        "./tests",
+        "./shared",
+        "./lambda/scheduler_agent",
+        "./lambda/inbound",
+        "./lambda/daily_setup",
+        "./lambda/summary"
+    ],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    }
+}
