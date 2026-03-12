@@ -35,7 +35,7 @@ def delete_task(task_id):
 
 def add_check_in(check_in):
     response = supabase.table("checkins").insert(check_in).execute()
-
+    add
     return response.data
 
 
@@ -73,4 +73,9 @@ def get_checkin_items_by_date_range(start_date, end_date):
         .lte("checkins.sent_at", end_date)
         .execute()
     )
+    return response.data
+
+
+def add_checkin_item(checkin_item):
+    response = supabase.table("checkin_items").insert(checkin_item).execute()
     return response.data
