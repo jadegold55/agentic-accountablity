@@ -8,4 +8,10 @@ def send_message(text):
     return response.json()
 
 
-send_message("hello its agent")
+def send_photo(photo_url, caption=None):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "photo": photo_url}
+    if caption:
+        payload["caption"] = caption
+    response = requests.post(url, json=payload)
+    return response.json()
