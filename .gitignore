@@ -13,6 +13,8 @@ ENV/
 .env
 .env.*
 !.env.example
+credentials.json
+get_token.py
 
 # Packaging and build artifacts
 build/

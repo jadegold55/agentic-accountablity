@@ -1,10 +1,5 @@
-from dotenv import load_dotenv
-import os
 from supabase import create_client
-
-load_dotenv()
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+from config import SUPABASE_KEY, SUPABASE_URL
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -35,7 +30,6 @@ def delete_task(task_id):
 
 def add_check_in(check_in):
     response = supabase.table("checkins").insert(check_in).execute()
-    add
     return response.data
 
 
