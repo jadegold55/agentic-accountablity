@@ -1,0 +1,28 @@
+version = 0.1
+
+[default.build.parameters]
+template_file = "template.yaml"
+cached = true
+parallel = true
+
+[default.validate.parameters]
+template_file = "template.yaml"
+lint = false
+
+[default.package.parameters]
+template_file = "template.yaml"
+output_template_file = ".aws-sam/packaged.yaml"
+
+
+[default.deploy.parameters]
+stack_name = "agentic-accountability"
+resolve_s3 = true
+s3_prefix = "agentic-accountability"
+profile = "agentic_schd_jade"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "GoogleClientId=\"/agentic-accountability/google-client-id\" GoogleClientSecret=\"/agentic-accountability/google-client-secret\" GoogleRefreshToken=\"/agentic-accountability/google-refresh-token\" GroqAPIKey=\"/agentic-accountability/groq-api-key\" TelegramBotToken=\"/agentic-accountability/telegram-bot-token\" TelegramChatID=\"/agentic-accountability/telegram-chat-id\" SupabaseURL=\"/agentic-accountability/supabase-url\" SupabaseKey=\"/agentic-accountability/supabase-key\""
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-2"

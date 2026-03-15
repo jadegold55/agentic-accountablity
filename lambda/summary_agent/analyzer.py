@@ -1,4 +1,3 @@
-from shared.db import get_checkin_items_by_date_range
 from datetime import datetime
 
 
@@ -10,7 +9,7 @@ def analyze_week(checkin_items):
     for item in checkin_items:
         if item["rating"] is None:
             continue
-        name = item["tasks"]["name"]
+        name = item["event_title"]
         pertask[name] = pertask.get(name, []) + [item["rating"]]
 
     pertask = average(pertask)

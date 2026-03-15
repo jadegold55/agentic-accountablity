@@ -15,6 +15,13 @@ ENV/
 !.env.example
 credentials.json
 get_token.py
+token.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.secret
+*.secrets
 
 # Packaging and build artifacts
 build/
@@ -42,6 +49,7 @@ htmlcov/
 # Editor and OS files
 .DS_Store
 Thumbs.db
+.idea/
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
@@ -59,6 +67,11 @@ override.tf.json
 
 # AWS SAM / serverless build artifacts
 .aws-sam/
+infra/stack-events.json
+infra/samconfig.toml
+
+# Local Python tooling
+.python-version
 
 # Notebook checkpoints
 .ipynb_checkpoints/

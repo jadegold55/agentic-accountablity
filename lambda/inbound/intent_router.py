@@ -1,4 +1,3 @@
-from curses.ascii import isdigit
 from shared.groq_client import classify_message
 
 

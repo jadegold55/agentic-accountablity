@@ -1,0 +1,7 @@
+matplotlib
+langgraph
+langchain-core
+langchain-groq
+supabase
+requests
+python-dotenv

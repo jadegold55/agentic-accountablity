@@ -26,14 +26,12 @@ def get_calendar_service():
 def get_events(date: str):
     service = get_calendar_service()
     local_date = datetime.fromisoformat(date).date()
-    start_of_day = datetime.combine(local_date, time.min, APP_TZINFO).isoformat()
-    end_of_day = datetime.combine(local_date, time.max, APP_TZINFO).isoformat()
     events_result = (
         service.events()
         .list(
             calendarId="primary",
-            timeMin=start_of_day,
-            timeMax=end_of_day,
+            timeMin=datetime.combine(local_date, time.min, APP_TZINFO).isoformat(),
+            timeMax=datetime.combine(local_date, time.max, APP_TZINFO).isoformat(),
             singleEvents=True,
             orderBy="startTime",
         )

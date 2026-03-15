@@ -1,0 +1,191 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Agentic Accountability - AI accountability system
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Timeout: 90
+    MemorySize: 256
+    Environment:
+      Variables:
+        APP_TIME_ZONE: America/New_York
+
+Parameters:
+  GoogleClientId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /agentic-accountability/google-client-id
+  GoogleClientSecret:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /agentic-accountability/google-client-secret
+  GoogleRefreshToken:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /agentic-accountability/google-refresh-token
+  GroqAPIKey:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /agentic-accountability/groq-api-key
+  TelegramBotToken:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /agentic-accountability/telegram-bot-token
+  TelegramChatID:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /agentic-accountability/telegram-chat-id
+  SupabaseURL:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /agentic-accountability/supabase-url
+  SupabaseKey:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /agentic-accountability/supabase-key
+
+
+Resources:
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: shared-layer
+      ContentUri: ../layers/shared/
+      CompatibleRuntimes:
+        - python3.13
+  
+
+  DailySetupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: daily_setup
+      CodeUri: ../lambda/daily_setup/
+      Handler: handler.lambda_handler
+      Layers:
+        - !Ref SharedLayer
+      Environment:
+        Variables:
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
+          GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
+          GOOGLE_REFRESH_TOKEN: !Ref GoogleRefreshToken
+          SCHEDULER_AGENT_ARN: !GetAtt SchedulerAgentFunction.Arn
+          SCHEDULER_ROLE_ARN: !GetAtt SchedulerExecutionRole.Arn
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - scheduler:CreateSchedule
+                - scheduler:DeleteSchedule
+                - scheduler:ListSchedules
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - iam:PassRole
+              Resource: !GetAtt SchedulerExecutionRole.Arn
+      Events:
+        DailySetupSchedule:
+          Type: Schedule
+          Properties:
+            Name: daily-setup
+            Schedule: cron(0 0 * * ? *)
+            Enabled: true
+  SchedulerAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: scheduler_agent
+      CodeUri: ../lambda/scheduler_agent/
+      Handler: handler.lambda_handler
+      Layers:
+        - !Ref SharedLayer
+      Environment:
+        Variables:
+          GROQ_API_KEY: !Ref GroqAPIKey
+          TELEGRAM_BOT_TOKEN: !Ref TelegramBotToken
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
+          GOOGLE_CLIENT_SECRET: !Ref GoogleClientSecret
+          GOOGLE_REFRESH_TOKEN: !Ref GoogleRefreshToken
+          TELEGRAM_CHAT_ID: !Ref TelegramChatID
+          SUPABASE_URL: !Ref SupabaseURL
+          SUPABASE_KEY: !Ref SupabaseKey
+  InboundMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: inbound_message
+      CodeUri: ../lambda/inbound/
+      Handler: handler.lambda_handler
+      Layers:
+        - !Ref SharedLayer
+      Environment:
+        Variables:
+          GROQ_API_KEY: !Ref GroqAPIKey
+          TELEGRAM_BOT_TOKEN: !Ref TelegramBotToken
+          TELEGRAM_CHAT_ID: !Ref TelegramChatID
+          SUPABASE_URL: !Ref SupabaseURL
+          SUPABASE_KEY: !Ref SupabaseKey
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !GetAtt SchedulerAgentFunction.Arn
+
+
+      Events:
+        TelegramWebhook:
+          Type: Api
+          Properties:
+            Path: /webhook
+            Method: post
+
+
+
+  SummaryAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: summary_agent
+      CodeUri: ../lambda/summary_agent/
+      Handler: handler.lambda_handler
+      Layers:
+        - !Ref SharedLayer
+      Environment:
+        Variables:
+          GROQ_API_KEY: !Ref GroqAPIKey
+          TELEGRAM_BOT_TOKEN: !Ref TelegramBotToken
+          TELEGRAM_CHAT_ID: !Ref TelegramChatID
+          SUPABASE_URL: !Ref SupabaseURL
+          SUPABASE_KEY: !Ref SupabaseKey
+      Events:
+        WeeklySummarySchedule:
+          Type: Schedule
+          Properties:
+            Name: weekly-summary
+            Schedule: cron(0 12 ? * SUN *)
+            Enabled: true
+  SchedulerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeSchedulerAgent
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt SchedulerAgentFunction.Arn
+
+
+Outputs:
+  DailySetupFunctionArn:
+    Description: ARN for the daily setup Lambda function
+    Value: !GetAtt DailySetupFunction.Arn
+  SchedulerAgentFunctionArn:
+    Description: ARN for the scheduler agent Lambda function
+    Value: !GetAtt SchedulerAgentFunction.Arn
+  SummaryAgentFunctionArn:
+    Description: ARN for the summary agent Lambda function
+    Value: !GetAtt SummaryAgentFunction.Arn
+  InboundMessageFunctionArn:
+    Description: ARN for the inbound message Lambda function
+    Value: !GetAtt InboundMessageFunction.Arn

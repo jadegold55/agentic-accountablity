@@ -1,11 +1,14 @@
 import json
 from datetime import datetime, timedelta
+from typing import Any, cast
+
+from langchain_core.messages import HumanMessage
+
 from shared.db import get_checkin_items_by_date_range
 from shared.telegram import send_message
-from shared.groq_client import classify_message
-from groq import Groq
-from shared.config import GROQ_API_KEY
+
 from analyzer import analyze_week
+from graph import app
 from prompt_builder import build_summary_prompt
 
 
@@ -23,19 +26,10 @@ def lambda_handler(event, context):
 
     prompt = build_summary_prompt(stats)
 
-    client = Groq(api_key=GROQ_API_KEY)
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a supportive accountability coach for a college student.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-    )
-
-    summary_text = response.choices[0].message.content
-    send_message(summary_text)
+    initial_state = {
+        "messages": [HumanMessage(content=prompt)],
+        "weeklySummary": stats,
+    }
+    app.invoke(initial_state)
 
     return {"statusCode": 200, "body": json.dumps("ok")}

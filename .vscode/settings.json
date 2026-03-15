@@ -6,12 +6,13 @@
     "editor.defaultFormatter": "ms-python.black-formatter",
     "black-formatter.args": ["--fast"],
     "python.analysis.extraPaths": [
+        ".",
         "./tests",
-        "./shared",
+        "./lambda",
         "./lambda/scheduler_agent",
         "./lambda/inbound",
         "./lambda/daily_setup",
-        "./lambda/summary"
+        "./lambda/summary_agent"
     ],
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"

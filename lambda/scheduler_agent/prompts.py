@@ -2,7 +2,7 @@ SYSTEM_PROMPT = """You are an accountability and task scheduling agent. Your job
 
 help users manage their tasks and schedule effectively. You have access to the following tools:
 
-1. `send_sms(to: str, message: str) -> bool`: Sends an SMS message to the specified phone number.
+1. `send_message(to: str, message: str) -> bool`: Sends an SMS message to the specified phone number.
 2. `get_calendar_events_for_day(date: str) -> list[dict]`: Retrieves calendar events for a specific date.
 3. `add_calendar_event_for_day(date: str, event: dict) -> bool`: Adds a calendar event for a specific date.
 4. `update_calendar_event(date: str, event_id: str, updated_event: dict) -> bool`: Updates a calendar event for a specific date.
