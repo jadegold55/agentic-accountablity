@@ -30,6 +30,17 @@ def test_route_after_tools_ends_after_schedule_logging() -> None:
         "mode": "schedule",
     }
 
+    assert graph.route_after_tools(state) == "agent"
+
+
+def test_route_after_tools_ends_after_schedule_message() -> None:
+    graph = load_scheduler_graph_module()
+
+    state = {
+        "messages": [SimpleNamespace(name="send_message")],
+        "mode": "schedule",
+    }
+
     assert graph.route_after_tools(state) == graph.END
 
 

@@ -1,8 +1,10 @@
 import json
 import re
+from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from typing import Any, cast
 
+import boto3
 from langchain_core.tools import tool
 from shared.db import (
     add_checkin_item,
@@ -11,6 +13,7 @@ from shared.db import (
     get_checkin_by_event_id,
     update_checkin_status,
 )
+from shared.config import SCHEDULER_AGENT_ARN, SCHEDULER_ROLE_ARN
 from shared.telegram import send_message as send_msg
 from shared.calendar_client import add_event, get_events, update_event
 
@@ -45,6 +48,67 @@ def _serialize_events(events: list[Event]) -> str:
         for event in events
     ]
     return json.dumps(simplified_events)
+
+
+def _upsert_schedule(name: str, schedule_expression: str, payload: dict) -> None:
+    client = boto3.client("scheduler")
+    target = {
+        "Arn": SCHEDULER_AGENT_ARN,
+        "RoleArn": SCHEDULER_ROLE_ARN,
+        "Input": json.dumps(payload),
+    }
+    try:
+        client.create_schedule(
+            Name=name,
+            ScheduleExpression=schedule_expression,
+            FlexibleTimeWindow={"Mode": "OFF"},
+            Target=target,
+        )
+    except client.exceptions.ConflictException:
+        client.update_schedule(
+            Name=name,
+            ScheduleExpression=schedule_expression,
+            FlexibleTimeWindow={"Mode": "OFF"},
+            Target=target,
+        )
+
+
+def _refresh_event_schedules(event: Event) -> None:
+    if not SCHEDULER_AGENT_ARN or not SCHEDULER_ROLE_ARN:
+        return
+
+    start_str = cast(dict[str, Any], event.get("start") or {}).get("dateTime")
+    end_str = cast(dict[str, Any], event.get("end") or {}).get("dateTime")
+    event_id = str(event.get("id", "")).strip()
+    event_title = str(event.get("summary", "")).strip()
+    if not start_str or not end_str or not event_id:
+        return
+
+    start_dt = datetime.fromisoformat(start_str)
+    end_dt = datetime.fromisoformat(end_str)
+    duration_mins = (end_dt - start_dt).total_seconds() / 60
+    utc_start = start_dt.astimezone(timezone.utc)
+    checkin_payload = {
+        "type": "checkin",
+        "calendar_event_id": event_id,
+        "event_title": event_title,
+        "scheduled_for": start_str,
+        "event_duration_mins": duration_mins,
+    }
+    _upsert_schedule(
+        f"checkin-{event_id}",
+        f"at({utc_start.strftime('%Y-%m-%dT%H:%M:%S')})",
+        checkin_payload,
+    )
+
+    nudge_payload = dict(checkin_payload)
+    nudge_payload["type"] = "nudge"
+    nudge_at = end_dt.astimezone(timezone.utc) + timedelta(minutes=30)
+    _upsert_schedule(
+        f"nudge-{event_id}",
+        f"at({nudge_at.strftime('%Y-%m-%dT%H:%M:%S')})",
+        nudge_payload,
+    )
 
 
 def _normalize_lookup(value: str) -> str:
@@ -166,7 +230,8 @@ def add_calendar_event_for_day(date: str, event: dict) -> str:
 
     if len(summary_matches) == 1:
         matched_event_id = str(summary_matches[0].get("id", ""))
-        update_event(date, matched_event_id, event)
+        updated_event = update_event(date, matched_event_id, event)
+        _refresh_event_schedules(cast(Event, updated_event))
         return (
             "Existing event matched by summary and updated successfully "
             f"with id {matched_event_id}."
@@ -178,7 +243,8 @@ def add_calendar_event_for_day(date: str, event: dict) -> str:
             f"Use one of these exact events: {_serialize_events(summary_matches)}"
         )
 
-    add_event(date, event)
+    created_event = add_event(date, event)
+    _refresh_event_schedules(cast(Event, created_event))
     return "Event added successfully."
 
 
@@ -199,7 +265,8 @@ def update_calendar_event(date: str, event_id: str, updated_event: dict) -> str:
             f"Use one of these exact events: {_serialize_events(events)}"
         )
 
-    update_event(date, resolved_event_id, updated_event)
+    event_result = update_event(date, resolved_event_id, updated_event)
+    _refresh_event_schedules(cast(Event, event_result))
     return f"Event updated successfully with id {resolved_event_id}."
 
 

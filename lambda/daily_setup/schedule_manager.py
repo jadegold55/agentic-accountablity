@@ -22,8 +22,8 @@ def setup_today():
         start_dt = datetime.fromisoformat(start_str)
         end_dt = datetime.fromisoformat(event["end"]["dateTime"])
         duration_mins = (end_dt - start_dt).total_seconds() / 60
-        utc = start_dt.astimezone(timezone.utc)
-        schedule_expr = f"at({utc.strftime('%Y-%m-%dT%H:%M:%S')})"
+        utc_start = start_dt.astimezone(timezone.utc)
+        schedule_expr = f"at({utc_start.strftime('%Y-%m-%dT%H:%M:%S')})"
         payload = {
             "type": "checkin",
             "calendar_event_id": event["id"],
@@ -45,9 +45,9 @@ def setup_today():
         payload["type"] = "nudge"
         client.create_schedule(
             Name=f"nudge-{event['id']}",
-            ScheduleExpression=(utc + timedelta(minutes=30)).strftime(
-                "at(%Y-%m-%dT%H:%M:%S)"
-            ),
+            ScheduleExpression=(
+                end_dt.astimezone(timezone.utc) + timedelta(minutes=30)
+            ).strftime("at(%Y-%m-%dT%H:%M:%S)"),
             FlexibleTimeWindow={"Mode": "OFF"},
             Target={
                 "Arn": SCHEDULER_AGENT_ARN,

@@ -23,7 +23,7 @@ def route_after_tools(state: SchedulerState) -> str:
     if mode == "command" and tool_name == "send_message":
         return END
 
-    if mode == "schedule" and tool_name in {"log_nudge", "log_check_in"}:
+    if mode == "schedule" and tool_name == "send_message":
         return END
 
     return "agent"

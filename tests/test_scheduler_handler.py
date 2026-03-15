@@ -47,3 +47,58 @@ def test_lambda_handler_uses_schedule_mode_for_automated_events() -> None:
 
         state = mock_invoke.call_args.args[0]
         assert state["mode"] == "schedule"
+        assert state["messages"][0].content == (
+            "Scheduled workflow type 'checkin' for calendar event 'Standup' "
+            "scheduled for 2026-03-15T09:00:00-04:00 with duration 30 minutes."
+        )
+
+
+def test_lambda_handler_skips_nudge_after_response() -> None:
+    handler = load_scheduler_handler_module()
+
+    with (
+        patch.object(
+            handler,
+            "get_latest_checkin_by_event_id",
+            return_value=[{"id": "chk1", "status": "responded"}],
+        ),
+        patch.object(handler.app, "invoke") as mock_invoke,
+    ):
+        result = handler.lambda_handler(
+            {
+                "type": "nudge",
+                "calendar_event_id": "evt-123",
+                "event_title": "Standup",
+                "scheduled_for": "2026-03-15T09:00:00-04:00",
+                "event_duration_mins": 30,
+            },
+            None,
+        )
+
+        mock_invoke.assert_not_called()
+        assert result == {"statusCode": 200, "body": '"skipped"'}
+
+
+def test_lambda_handler_runs_nudge_when_checkin_unanswered() -> None:
+    handler = load_scheduler_handler_module()
+
+    with (
+        patch.object(
+            handler,
+            "get_latest_checkin_by_event_id",
+            return_value=[{"id": "chk1", "status": "sent"}],
+        ),
+        patch.object(handler.app, "invoke") as mock_invoke,
+    ):
+        handler.lambda_handler(
+            {
+                "type": "nudge",
+                "calendar_event_id": "evt-123",
+                "event_title": "Standup",
+                "scheduled_for": "2026-03-15T09:00:00-04:00",
+                "event_duration_mins": 30,
+            },
+            None,
+        )
+
+        mock_invoke.assert_called_once()
