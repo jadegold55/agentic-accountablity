@@ -99,6 +99,17 @@ def get_latest_checkin_by_event_id(calendar_event_id):
     return response.data
 
 
+def get_open_checkins():
+    response = (
+        supabase.table("checkins")
+        .select("*, checkin_items(*)")
+        .eq("status", "nudged")
+        .order("sent_at", desc=True)
+        .execute()
+    )
+    return response.data
+
+
 def get_latest_unanswered_checkin():
     response = (
         supabase.table("checkins")
