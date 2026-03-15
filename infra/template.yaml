@@ -10,6 +10,7 @@ Globals:
     Environment:
       Variables:
         APP_TIME_ZONE: America/New_York
+        MPLCONFIGDIR: /tmp/matplotlib
 
 Parameters:
   GoogleClientId:
@@ -77,12 +78,13 @@ Resources:
                 - iam:PassRole
               Resource: !GetAtt SchedulerExecutionRole.Arn
       Events:
-        DailySetupSchedule:
-          Type: Schedule
+        DailySetupScheduleV2:
+          Type: ScheduleV2
           Properties:
             Name: daily-setup
-            Schedule: cron(0 0 * * ? *)
-            Enabled: true
+            ScheduleExpression: cron(0 0 * * ? *)
+            ScheduleExpressionTimezone: America/New_York
+            State: ENABLED
   SchedulerAgentFunction:
     Type: AWS::Serverless::Function
     Properties:

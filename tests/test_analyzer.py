@@ -83,6 +83,7 @@ def test_analyze_week_with_no_ratings():
     result = analyzer.analyze_week(mock_items)
     assert result["per_task"] is None
     assert result["per_day"] is None
+    assert result["completion_notes"] == []
 
 
 def test_analyze_week_with_no_list():
@@ -92,3 +93,34 @@ def test_analyze_week_with_no_list():
     result = analyzer.analyze_week(mock_items)
     assert result["total_checkins"] == 0
     assert result["average_rating"] is None
+
+
+def test_analyze_week_collects_completion_notes():
+    analyzer = load_analyzer_module()
+
+    mock_items = [
+        {
+            "id": "fake-id-1",
+            "checkin_id": "fake-checkin-1",
+            "event_title": "Code sesh",
+            "rating": 4,
+            "completion_summary": "Finished most of the implementation.",
+            "checkins": {"sent_at": "2026-03-10T14:00:00+00:00"},
+        },
+        {
+            "id": "fake-id-2",
+            "checkin_id": "fake-checkin-2",
+            "event_title": "Gym",
+            "rating": 3,
+            "completion_summary": None,
+            "checkins": {"sent_at": "2026-03-11T10:00:00+00:00"},
+        },
+    ]
+
+    result = analyzer.analyze_week(mock_items)
+    assert result["completion_notes"] == [
+        {
+            "event_title": "Code sesh",
+            "completion_summary": "Finished most of the implementation.",
+        }
+    ]

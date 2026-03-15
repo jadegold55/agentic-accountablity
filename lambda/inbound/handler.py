@@ -3,6 +3,7 @@ import logging
 import re
 from intent_router import classify_intent
 import boto3
+from shared.groq_client import interpret_completion_reply
 from shared.db import (
     get_open_checkins,
     update_checkin_item_rating,
@@ -25,6 +26,10 @@ def _extract_rating(reply: str) -> int | None:
         if 0 <= rating <= 5:
             return rating
     return None
+
+
+def _confidence_is_usable(confidence: str) -> bool:
+    return confidence.lower() in {"high", "medium"}
 
 
 def _checkin_event_title(checkin: dict) -> str:
@@ -66,34 +71,79 @@ def lambda_handler(event, context):
 
     reply = message["text"]
     logger.info(f"[inbound] received message: {reply}")
-    intent = classify_intent(reply).strip(".")
-    logger.info(f"[inbound] classified intent: '{intent}'")
-    if intent == "rating":
-        rating = _extract_rating(reply)
-        if rating is None:
+    matched_checkin, resolution = _resolve_open_checkin(message)
+    rating = _extract_rating(reply)
+    if rating is not None:
+        if matched_checkin:
+            checkin_items = matched_checkin.get("checkin_items") or []
+            if checkin_items:
+                checkin_item_id = checkin_items[0]["id"]
+                update_checkin_item_rating(
+                    checkin_item_id,
+                    rating,
+                    raw_reply_text=reply,
+                    completion_summary=None,
+                )
+                update_checkin_status(
+                    checkin_id=matched_checkin["id"], status="responded"
+                )
+        elif resolution == "ambiguous":
             send_telegram_message(
-                "Send one rating from 0 to 5 so I can log it correctly."
+                "I have more than one follow-up waiting. Reply directly to the specific nudge with a number from 0 to 5."
             )
         else:
-            matched_checkin, resolution = _resolve_open_checkin(message)
-            if matched_checkin:
+            send_telegram_message(
+                "That reminder doesn't need a rating yet. I'll ask how it went in the follow-up nudge."
+            )
+        return {"statusCode": 200, "body": json.dumps("ok")}
+
+    if matched_checkin:
+        interpretation = interpret_completion_reply(
+            reply, _checkin_event_title(matched_checkin)
+        )
+        intent = str(interpretation.get("intent", "")).strip().lower()
+        confidence = str(interpretation.get("confidence", "low"))
+        if intent == "log_completion" and _confidence_is_usable(confidence):
+            inferred_rating = interpretation.get("rating")
+            if isinstance(inferred_rating, int) and 0 <= inferred_rating <= 5:
                 checkin_items = matched_checkin.get("checkin_items") or []
                 if checkin_items:
                     checkin_item_id = checkin_items[0]["id"]
-                    update_checkin_item_rating(checkin_item_id, rating)
+                    completion_summary = str(
+                        interpretation.get("completion_summary", "")
+                    ).strip()
+                    update_checkin_item_rating(
+                        checkin_item_id,
+                        inferred_rating,
+                        raw_reply_text=reply,
+                        completion_summary=completion_summary or None,
+                    )
                     update_checkin_status(
                         checkin_id=matched_checkin["id"], status="responded"
                     )
-            elif resolution == "ambiguous":
-                send_telegram_message(
-                    "I have more than one follow-up waiting. Reply directly to the specific nudge with a number from 0 to 5."
-                )
-            else:
-                send_telegram_message(
-                    "That reminder doesn't need a rating yet. I'll ask how it went in the follow-up nudge."
-                )
+                    acknowledgment = str(
+                        interpretation.get("acknowledgment", "")
+                    ).strip()
+                    if acknowledgment:
+                        send_telegram_message(acknowledgment)
+                    return {"statusCode": 200, "body": json.dumps("ok")}
+        elif intent == "clarify_completion":
+            clarifying_question = str(
+                interpretation.get("clarifying_question", "")
+            ).strip()
+            if clarifying_question:
+                send_telegram_message(clarifying_question)
+                return {"statusCode": 200, "body": json.dumps("ok")}
 
-    elif intent == "command":
+    elif resolution == "ambiguous":
+        send_telegram_message(
+            "I have more than one follow-up waiting. Reply directly to the specific nudge so I know which one you mean."
+        )
+        return {"statusCode": 200, "body": json.dumps("ok")}
+
+    intent = classify_intent(reply).strip(".")
+    logger.info(f"[inbound] classified intent: '{intent}'")
+    if intent == "command":
         logger.info(f"[inbound] invoking scheduler_agent with message: {reply}")
         lambda_client = boto3.client("lambda")
         lambda_client.invoke(
@@ -102,6 +152,10 @@ def lambda_handler(event, context):
             Payload=json.dumps({"message": reply, "type": "command"}),
         )
         logger.info("[inbound] scheduler_agent invoked")
+    elif intent == "rating":
+        send_telegram_message(
+            "That reminder doesn't need a rating yet. I'll ask how it went in the follow-up nudge."
+        )
     elif intent == "question":
         pass
 

@@ -1,7 +1,5 @@
 matplotlib
-langgraph
-langchain-core
-langchain-groq
+groq
 supabase
 requests
 python-dotenv

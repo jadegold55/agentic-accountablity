@@ -20,6 +20,9 @@
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         checkin_id UUID REFERENCES checkins(id),
         task_id UUID REFERENCES tasks(id),
+        event_title TEXT,
+        raw_reply_text TEXT,
+        completion_summary TEXT,
         rating SMALLINT CHECK (rating >= 0 AND rating <= 5) -- null until responded
     );
 

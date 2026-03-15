@@ -6,7 +6,16 @@ def analyze_week(checkin_items):
     if not checkin_items:
         return {"average_rating": None, "total_checkins": 0}
     pertask = {}
+    completion_notes = []
     for item in checkin_items:
+        summary = item.get("completion_summary")
+        if summary:
+            completion_notes.append(
+                {
+                    "event_title": item.get("event_title", ""),
+                    "completion_summary": summary,
+                }
+            )
         if item["rating"] is None:
             continue
         name = item["event_title"]
@@ -25,7 +34,11 @@ def analyze_week(checkin_items):
 
     perday = average(perday)
 
-    return {"per_task": pertask, "per_day": perday}
+    return {
+        "per_task": pertask,
+        "per_day": perday,
+        "completion_notes": completion_notes,
+    }
 
 
 def average(per):

@@ -51,13 +51,32 @@ def update_checkin_status(checkin_id, status):
     return response.data
 
 
-def update_checkin_item_rating(checkin_item_id, rating):
-    response = (
-        supabase.table("checkin_items")
-        .update({"rating": rating})
-        .eq("id", checkin_item_id)
-        .execute()
-    )
+def update_checkin_item_rating(
+    checkin_item_id,
+    rating,
+    raw_reply_text=None,
+    completion_summary=None,
+):
+    updates = {"rating": rating}
+    if raw_reply_text is not None:
+        updates["raw_reply_text"] = raw_reply_text
+    if completion_summary is not None:
+        updates["completion_summary"] = completion_summary
+
+    try:
+        response = (
+            supabase.table("checkin_items")
+            .update(updates)
+            .eq("id", checkin_item_id)
+            .execute()
+        )
+    except Exception:
+        response = (
+            supabase.table("checkin_items")
+            .update({"rating": rating})
+            .eq("id", checkin_item_id)
+            .execute()
+        )
     return response.data
 
 
@@ -74,6 +93,21 @@ def get_checkin_items_by_date_range(start_date, end_date):
 
 def add_checkin_item(checkin_item):
     response = supabase.table("checkin_items").insert(checkin_item).execute()
+    return response.data
+
+
+def add_weekly_summary(week_start_date, completion_json, summary):
+    response = (
+        supabase.table("weekly_summaries")
+        .insert(
+            {
+                "week_start_date": week_start_date,
+                "completion_json": completion_json,
+                "summary": summary,
+            }
+        )
+        .execute()
+    )
     return response.data
 
 

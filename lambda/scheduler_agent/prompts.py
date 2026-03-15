@@ -94,6 +94,6 @@ Good reminder examples:
 - "Workout time. You've got this."
 
 Good nudge examples:
-- "Quick nudge: how did Meeting with Moira go?"
-- "Still curious how dentist appointment went when you get a sec."
+- "Quick nudge: how did your meeting with Moira go?"
+- "Still curious how your dentist appointment went when you get a sec."
 """

@@ -39,10 +39,146 @@ def test_rating_updates_single_open_checkin_even_when_nudged() -> None:
     ):
         handler.lambda_handler(event, None)
 
-        mock_update_rating.assert_called_once_with("item-1", 4)
+        mock_update_rating.assert_called_once_with(
+            "item-1",
+            4,
+            raw_reply_text="4",
+            completion_summary=None,
+        )
         mock_update_status.assert_called_once_with(
             checkin_id="checkin-1", status="responded"
         )
+        mock_send.assert_not_called()
+
+
+def test_natural_completion_reply_updates_single_nudged_checkin() -> None:
+    handler = load_inbound_handler_module()
+
+    event = {"body": '{"message": {"text": "I got through most of it"}}'}
+    open_checkins = [
+        {
+            "id": "checkin-1",
+            "status": "nudged",
+            "checkin_items": [{"id": "item-1", "event_title": "Code sesh"}],
+        }
+    ]
+
+    with (
+        patch.object(handler, "get_open_checkins", return_value=open_checkins),
+        patch.object(
+            handler,
+            "interpret_completion_reply",
+            return_value={
+                "intent": "log_completion",
+                "rating": 4,
+                "confidence": "high",
+                "completion_summary": "User completed most of it.",
+                "clarifying_question": "",
+                "acknowledgment": "Nice. Sounds like Code sesh was mostly done.",
+            },
+        ) as mock_interpret,
+        patch.object(handler, "classify_intent") as mock_classify_intent,
+        patch.object(handler, "update_checkin_item_rating") as mock_update_rating,
+        patch.object(handler, "update_checkin_status") as mock_update_status,
+        patch.object(handler, "send_telegram_message") as mock_send,
+    ):
+        handler.lambda_handler(event, None)
+
+        mock_interpret.assert_called_once_with("I got through most of it", "Code sesh")
+        mock_update_rating.assert_called_once_with(
+            "item-1",
+            4,
+            raw_reply_text="I got through most of it",
+            completion_summary="User completed most of it.",
+        )
+        mock_update_status.assert_called_once_with(
+            checkin_id="checkin-1", status="responded"
+        )
+        mock_send.assert_called_once_with(
+            "Nice. Sounds like Code sesh was mostly done."
+        )
+        mock_classify_intent.assert_not_called()
+
+
+def test_natural_completion_reply_can_ask_for_clarification() -> None:
+    handler = load_inbound_handler_module()
+
+    event = {"body": '{"message": {"text": "kind of"}}'}
+    open_checkins = [
+        {
+            "id": "checkin-1",
+            "status": "nudged",
+            "checkin_items": [{"id": "item-1", "event_title": "Code sesh"}],
+        }
+    ]
+
+    with (
+        patch.object(handler, "get_open_checkins", return_value=open_checkins),
+        patch.object(
+            handler,
+            "interpret_completion_reply",
+            return_value={
+                "intent": "clarify_completion",
+                "rating": None,
+                "confidence": "low",
+                "completion_summary": "",
+                "clarifying_question": "Would you say you got a little done or most of it done?",
+                "acknowledgment": "",
+            },
+        ),
+        patch.object(handler, "classify_intent") as mock_classify_intent,
+        patch.object(handler, "update_checkin_item_rating") as mock_update_rating,
+        patch.object(handler, "update_checkin_status") as mock_update_status,
+        patch.object(handler, "send_telegram_message") as mock_send,
+    ):
+        handler.lambda_handler(event, None)
+
+        mock_update_rating.assert_not_called()
+        mock_update_status.assert_not_called()
+        mock_send.assert_called_once_with(
+            "Would you say you got a little done or most of it done?"
+        )
+        mock_classify_intent.assert_not_called()
+
+
+def test_non_completion_reply_falls_back_to_command_handling() -> None:
+    handler = load_inbound_handler_module()
+
+    event = {"body": '{"message": {"text": "move tomorrow to 4"}}'}
+    open_checkins = [
+        {
+            "id": "checkin-1",
+            "status": "nudged",
+            "checkin_items": [{"id": "item-1", "event_title": "Code sesh"}],
+        }
+    ]
+
+    with (
+        patch.object(handler, "get_open_checkins", return_value=open_checkins),
+        patch.object(
+            handler,
+            "interpret_completion_reply",
+            return_value={
+                "intent": "not_completion",
+                "rating": None,
+                "confidence": "low",
+                "completion_summary": "",
+                "clarifying_question": "",
+                "acknowledgment": "",
+            },
+        ),
+        patch.object(
+            handler, "classify_intent", return_value="command"
+        ) as mock_classify_intent,
+        patch.object(handler, "boto3") as mock_boto3,
+        patch.object(handler, "send_telegram_message") as mock_send,
+    ):
+        mock_lambda = mock_boto3.client.return_value
+
+        handler.lambda_handler(event, None)
+
+        mock_classify_intent.assert_called_once_with("move tomorrow to 4")
+        mock_lambda.invoke.assert_called_once()
         mock_send.assert_not_called()
 
 
@@ -98,7 +234,12 @@ def test_rating_uses_replied_message_to_choose_checkin() -> None:
     ):
         handler.lambda_handler(event, None)
 
-        mock_update_rating.assert_called_once_with("item-1", 5)
+        mock_update_rating.assert_called_once_with(
+            "item-1",
+            5,
+            raw_reply_text="5",
+            completion_summary=None,
+        )
         mock_update_status.assert_called_once_with(
             checkin_id="checkin-1", status="responded"
         )
