@@ -381,19 +381,6 @@ Useful manual targets:
 
 ## Troubleshooting
 
-### Deployment fails with a CloudFormation changeset error about resource type updates
-
-If you changed a SAM event from `Schedule` to `ScheduleV2`, CloudFormation may refuse an in-place update. Rename the event key in `infra/template.yaml` so SAM generates a new logical resource.
-
-### Weekly summaries are not appearing in Supabase
-
-Check:
-
-- the `weekly_summaries` table exists
-- the Lambda has valid `SUPABASE_URL` and `SUPABASE_KEY` values
-- the summary handler can reach Supabase
-- your deployment includes the latest shared DB helper code
-
 ### Telegram messages are not arriving
 
 Check:
