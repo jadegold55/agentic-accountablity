@@ -29,3 +29,21 @@ def test_lambda_handler_uses_local_date_in_command_prompt() -> None:
             "Today is 2026-03-14 in timezone America/New_York: "
             "add a meeting tomorrow"
         )
+        assert state["mode"] == "command"
+
+
+def test_lambda_handler_uses_schedule_mode_for_automated_events() -> None:
+    handler = load_scheduler_handler_module()
+
+    with patch.object(handler.app, "invoke") as mock_invoke:
+        handler.lambda_handler(
+            {
+                "event_title": "Standup",
+                "scheduled_for": "2026-03-15T09:00:00-04:00",
+                "event_duration_mins": 30,
+            },
+            None,
+        )
+
+        state = mock_invoke.call_args.args[0]
+        assert state["mode"] == "schedule"
